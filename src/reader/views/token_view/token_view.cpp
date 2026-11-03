@@ -12,6 +12,7 @@
 #include "reader/text_direction.h"
 #include "sys/keymap.h"
 #include "sys/screen.h"
+#include "util/arabic_justify.h"
 #include "util/sdl_font_cache.h"
 #include "util/sdl_utils.h"
 #include "util/text_visual.h"
@@ -20,6 +21,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 namespace {
 
 bool line_fits_on_screen(TTF_Font *font, int avail_width, const char *s, uint32_t len)
@@ -229,7 +231,29 @@ bool TokenView::render(SDL_Surface *dest_surface, bool force_render)
             if (line->type == DisplayLine::Type::Text)
             {
                 const auto *text_line = static_cast<const TextLine *>(line);
-                std::string visual = to_visual_line(text_line->text, text_line->rtl);
+                std::string logical = text_line->text;
+                if (text_line->justify)
+                {
+                    const int target_w = SCREEN_WIDTH - line_padding * 2;
+                    logical = justify_arabic_line(
+                        logical,
+                        target_w,
+                        [font, rtl = text_line->rtl](std::string_view s) {
+                            std::string visual = to_visual_line(s, rtl);
+                            if (visual.empty())
+                            {
+                                return 0;
+                            }
+                            int w = 0, h = 0;
+                            if (TTF_SizeUTF8(font, visual.c_str(), &w, &h) != 0)
+                            {
+                                return 0;
+                            }
+                            return w;
+                        }
+                    );
+                }
+                std::string visual = to_visual_line(logical, text_line->rtl);
                 if (!visual.empty())
                 {
                     auto surface = surface_unique_ptr { TTF_RenderUTF8_Shaded(font, visual.c_str(), theme.main_text, theme.background) };

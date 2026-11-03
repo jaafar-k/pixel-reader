@@ -26,8 +26,9 @@ struct TextLine: public DisplayLine
     std::string text;
     bool centered;
     bool rtl;
+    bool justify;
 
-    TextLine(DocAddr addr, const std::string& text, bool centered = false, bool rtl = false);
+    TextLine(DocAddr addr, const std::string& text, bool centered = false, bool rtl = false, bool justify = false);
     virtual ~TextLine() = default;
 };
 

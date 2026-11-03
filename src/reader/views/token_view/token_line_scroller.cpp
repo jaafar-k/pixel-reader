@@ -118,7 +118,7 @@ std::vector<std::unique_ptr<DisplayLine>> TokenLineScroller::render_display_line
             bool centered = type == TokenType::Header;
 
             lines.push_back(
-                std::make_unique<TextLine>(address, line_text, centered, line_rtl)
+                std::make_unique<TextLine>(address, line_text, centered, line_rtl, false)
             );
 
             address += get_address_width(line_text);
@@ -127,6 +127,18 @@ std::vector<std::unique_ptr<DisplayLine>> TokenLineScroller::render_display_line
                 address -= extra_text_width;
             }
         });
+
+        // Justify all but the last wrapped line of RTL body/list paragraphs
+        if (line_rtl && token.type != TokenType::Header && lines.size() > 1)
+        {
+            for (size_t i = 0; i + 1 < lines.size(); ++i)
+            {
+                if (lines[i]->type == DisplayLine::Type::Text)
+                {
+                    static_cast<TextLine *>(lines[i].get())->justify = true;
+                }
+            }
+        }
 
         return lines;
     }
