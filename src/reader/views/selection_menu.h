@@ -20,6 +20,7 @@ class SelectionMenu: public View
     uint32_t cursor_pos = 0;
     uint32_t scroll_pos = 0;
     bool close_on_select = false;
+    bool rtl = false;
 
     SystemStyling &styling;
     const uint32_t styling_sub_id;
@@ -52,6 +53,7 @@ public:
     // Define fallback keypress handler
     void set_default_on_keypress(std::function<void(SDLKey, SelectionMenu &)> callback);
     void set_close_on_select();
+    void set_rtl(bool rtl);
 
     void set_cursor_pos(const std::string &entry);
     void set_cursor_pos(uint32_t pos);

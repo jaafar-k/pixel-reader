@@ -5,6 +5,7 @@
 #include "./token_view/token_view_styling.h"
 
 #include "reader/system_styling.h"
+#include "reader/text_direction.h"
 #include "reader/view_stack.h"
 
 #include "doc_api/doc_reader.h"
@@ -72,11 +73,29 @@ void open_toc_menu(ReaderView &reader_view, ReaderViewState &state)
         return;
     }
 
+    // Sample TOC labels for Auto direction detection
+    std::string toc_sample;
+    for (const auto &toc_item: toc)
+    {
+        toc_sample += toc_item.display_name;
+        toc_sample.push_back(' ');
+        if (toc_sample.size() > 512)
+        {
+            break;
+        }
+    }
+    bool toc_rtl = resolve_effective_rtl(
+        state.sys_styling.get_text_direction(),
+        state.reader->get_language(),
+        toc_sample
+    );
+
     // setup toc entries & callbacks
     std::vector<std::string> menu_names;
     for (const auto &toc_item: toc)
     {
         std::string indent(toc_item.indent_level * 2, ' ');
+        // Leading indent + RTL visual reorder + right-align yields indent from the right edge
         menu_names.push_back(indent + toc_item.display_name);
     }
 
@@ -85,6 +104,7 @@ void open_toc_menu(ReaderView &reader_view, ReaderViewState &state)
         menu_names,
         state.sys_styling
     );
+    toc_select_menu->set_rtl(toc_rtl);
     toc_select_menu->set_on_selection([&reader_view, last_toc_index=current_toc_index](uint32_t toc_index) {
         if (toc_index != last_toc_index)
         {

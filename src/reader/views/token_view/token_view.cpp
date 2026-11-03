@@ -17,6 +17,7 @@
 #include "util/text_visual.h"
 #include "util/throttled.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 namespace {
@@ -327,35 +328,62 @@ bool TokenView::render(SDL_Surface *dest_surface, bool force_render)
         line_y = padding_y + num_text_display_lines * line_height;
         SDL_Rect title_crop_rect = {0, 0, 0, (Uint16)line_height};
 
-        // Progress
+        // Progress + chapter title (mirrored in RTL)
         {
             char percent_str[32];
             snprintf(percent_str, sizeof(percent_str), " %d%%", state->title_progress_percent);
 
             SDL_Surface *page_surface = TTF_RenderUTF8_Shaded(font, percent_str, theme.secondary_text, theme.background);
-
-            SDL_Rect dest_rect = {
-                static_cast<Sint16>(SCREEN_WIDTH - page_surface->w - line_padding),
-                static_cast<Sint16>(line_y + line_padding / 2),
-                0, 0
-            };
             title_crop_rect.w = SCREEN_WIDTH - line_padding * 2 - page_surface->w;
 
-            SDL_BlitSurface(page_surface, nullptr, dest_surface, &dest_rect);
+            if (state->effective_rtl)
+            {
+                SDL_Rect progress_rect = {
+                    static_cast<Sint16>(line_padding),
+                    static_cast<Sint16>(line_y + line_padding / 2),
+                    0, 0
+                };
+                SDL_BlitSurface(page_surface, nullptr, dest_surface, &progress_rect);
+            }
+            else
+            {
+                SDL_Rect progress_rect = {
+                    static_cast<Sint16>(SCREEN_WIDTH - page_surface->w - line_padding),
+                    static_cast<Sint16>(line_y + line_padding / 2),
+                    0, 0
+                };
+                SDL_BlitSurface(page_surface, nullptr, dest_surface, &progress_rect);
+            }
             SDL_FreeSurface(page_surface);
-        }
 
-        // Toc item
-        if (state->title.size() > 0)
-        {
-            SDL_Rect dest_rect = {
-                static_cast<Sint16>(line_padding),
-                static_cast<Sint16>(line_y + line_padding / 2),
-                0, 0
-            };
-            SDL_Surface *surface = TTF_RenderUTF8_Shaded(font, state->title.c_str(), theme.secondary_text, theme.background);
-            SDL_BlitSurface(surface, &title_crop_rect, dest_surface, &dest_rect);
-            SDL_FreeSurface(surface);
+            if (state->title.size() > 0)
+            {
+                std::string visual_title = to_visual_line(state->title, state->effective_rtl);
+                SDL_Surface *surface = TTF_RenderUTF8_Shaded(
+                    font,
+                    visual_title.c_str(),
+                    theme.secondary_text,
+                    theme.background
+                );
+                if (surface)
+                {
+                    SDL_Rect src = title_crop_rect;
+                    if (state->effective_rtl && surface->w > src.w)
+                    {
+                        // Keep the end of the title visible when cropping RTL text
+                        src.x = surface->w - src.w;
+                    }
+                    SDL_Rect dest_rect = {
+                        state->effective_rtl
+                            ? static_cast<Sint16>(SCREEN_WIDTH - line_padding - std::min(surface->w, (int)src.w))
+                            : static_cast<Sint16>(line_padding),
+                        static_cast<Sint16>(line_y + line_padding / 2),
+                        0, 0
+                    };
+                    SDL_BlitSurface(surface, &src, dest_surface, &dest_rect);
+                    SDL_FreeSurface(surface);
+                }
+            }
         }
     }
 

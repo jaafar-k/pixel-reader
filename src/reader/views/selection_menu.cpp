@@ -3,9 +3,13 @@
 
 #include "sys/screen.h"
 #include "sys/keymap.h"
+#include "reader/config.h"
+#include "reader/font_catalog.h"
 #include "reader/shoulder_keymap.h"
 #include "reader/system_styling.h"
+#include "util/sdl_font_cache.h"
 #include "util/sdl_utils.h"
+#include "util/text_visual.h"
 
 uint32_t SelectionMenu::num_display_lines() const
 {
@@ -77,6 +81,15 @@ void SelectionMenu::set_close_on_select()
     close_on_select = true;
 }
 
+void SelectionMenu::set_rtl(bool enabled)
+{
+    if (rtl != enabled)
+    {
+        rtl = enabled;
+        needs_render = true;
+    }
+}
+
 void SelectionMenu::set_cursor_pos(const std::string &entry)
 {
     for (uint32_t i = 0; i < entries.size(); ++i)
@@ -128,7 +141,8 @@ bool SelectionMenu::render(SDL_Surface *dest_surface, bool force_render)
     }
     needs_render = false;
 
-    TTF_Font *loaded_font = styling.get_loaded_font();
+    std::string font_name = get_content_font_name(styling.get_font_name(), rtl);
+    TTF_Font *loaded_font = cached_load_font(font_name, styling.get_font_size());
 
     const SDL_PixelFormat *pixel_format = dest_surface->format;
 
@@ -141,7 +155,6 @@ bool SelectionMenu::render(SDL_Surface *dest_surface, bool force_render)
     uint32_t rect_bg_color = SDL_MapRGB(pixel_format, bg_color.r, bg_color.g, bg_color.b);
     uint32_t rect_highlight_color = SDL_MapRGB(pixel_format, hl_bg_color.r, hl_bg_color.g, hl_bg_color.b);
 
-    Sint16 x = line_padding;
     Sint16 y = excess_pxl_y() / 2;
 
     // Clear screen
@@ -169,20 +182,32 @@ bool SelectionMenu::render(SDL_Surface *dest_surface, bool force_render)
             SDL_FillRect(dest_surface, &rect, rect_highlight_color);
         }
 
-        // Draw text
+        // Draw text (shaped/bidi; right-aligned when RTL)
         {
-            SDL_Rect rectMessage = {
-                x,
-                static_cast<Sint16>(y + line_padding / 2),
-                0, 0
-            };
-            auto message = surface_unique_ptr { TTF_RenderUTF8_Shaded(
-                loaded_font,
-                entry.c_str(),
-                is_highlighted ? hl_text_color : fg_color,
-                is_highlighted ? hl_bg_color : bg_color
-            ) };
-            SDL_BlitSurface(message.get(), NULL, dest_surface, &rectMessage);
+            std::string visual = to_visual_line(entry, rtl);
+            if (!visual.empty())
+            {
+                auto message = surface_unique_ptr { TTF_RenderUTF8_Shaded(
+                    loaded_font,
+                    visual.c_str(),
+                    is_highlighted ? hl_text_color : fg_color,
+                    is_highlighted ? hl_bg_color : bg_color
+                ) };
+                if (message)
+                {
+                    Sint16 x = line_padding;
+                    if (rtl)
+                    {
+                        x = static_cast<Sint16>(SCREEN_WIDTH - line_padding - message->w);
+                    }
+                    SDL_Rect rectMessage = {
+                        x,
+                        static_cast<Sint16>(y + line_padding / 2),
+                        0, 0
+                    };
+                    SDL_BlitSurface(message.get(), NULL, dest_surface, &rectMessage);
+                }
+            }
         }
 
         y += line_height;
