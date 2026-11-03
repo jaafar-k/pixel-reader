@@ -4,39 +4,73 @@
 #include "./token_view_styling.h"
 
 #include "doc_api/doc_reader.h"
+#include "doc_api/doc_token.h"
+#include "reader/config.h"
+#include "reader/font_catalog.h"
 #include "reader/system_styling.h"
 #include "reader/shoulder_keymap.h"
+#include "reader/text_direction.h"
 #include "sys/keymap.h"
 #include "sys/screen.h"
+#include "util/sdl_font_cache.h"
 #include "util/sdl_utils.h"
+#include "util/text_visual.h"
 #include "util/throttled.h"
 
 #include <stdexcept>
+#include <string>
 namespace {
 
 bool line_fits_on_screen(TTF_Font *font, int avail_width, const char *s, uint32_t len)
 {
     int w = avail_width, h;
 
-    char *mut_s = (char*)s;
-    char replaced = mut_s[len];
-    mut_s[len] = 0;
-
-    TTF_SizeUTF8(font, mut_s, &w, &h);
-    mut_s[len] = replaced;
+    std::string sized(s, len);
+    TTF_SizeUTF8(font, sized.c_str(), &w, &h);
 
     return w <= avail_width;
+}
+
+std::string sample_book_text(const std::shared_ptr<DocReader> &reader)
+{
+    std::string sample;
+    auto it = reader->get_iter();
+    for (int i = 0; i < 40 && sample.size() < 512; ++i)
+    {
+        const DocToken *token = it->read(1);
+        if (!token)
+        {
+            break;
+        }
+        if (token->type == TokenType::Text)
+        {
+            sample += static_cast<const TextDocToken *>(token)->text;
+        }
+        else if (token->type == TokenType::Header)
+        {
+            sample += static_cast<const HeaderDocToken *>(token)->text;
+        }
+        else if (token->type == TokenType::ListItem)
+        {
+            sample += static_cast<const ListItemDocToken *>(token)->text;
+        }
+        sample.push_back(' ');
+    }
+    return sample;
 }
 
 }  // namespace
 
 struct TokenViewState
 {
+    std::shared_ptr<DocReader> reader;
     SystemStyling &sys_styling;
     TokenViewStyling &token_view_styling;
     const uint32_t sys_styling_sub_id;
     const uint32_t token_view_styling_sub_id;
 
+    bool effective_rtl = false;
+    std::string content_font_name;
     TTF_Font *current_font = nullptr;
 
     const int line_padding = 4;
@@ -80,40 +114,63 @@ struct TokenViewState
         return SCREEN_HEIGHT - line_height - excess_pxl_y() / 2;
     }
 
+    void refresh_direction_and_font(bool reset_lines)
+    {
+        effective_rtl = resolve_effective_rtl(
+            sys_styling.get_text_direction(),
+            reader->get_language(),
+            sample_book_text(reader)
+        );
+        content_font_name = get_content_font_name(sys_styling.get_font_name(), effective_rtl);
+        current_font = cached_load_font(content_font_name, sys_styling.get_font_size());
+        line_height = detect_line_height(current_font) + line_padding;
+        line_scroller.set_line_height_pixels(line_height);
+        line_scroller.set_rtl(effective_rtl);
+        if (reset_lines)
+        {
+            line_scroller.reset_buffer();
+        }
+    }
+
     TokenViewState(std::shared_ptr<DocReader> reader, DocAddr address, SystemStyling &sys_styling, TokenViewStyling &token_view_styling)
-        : sys_styling(sys_styling),
+        : reader(reader),
+          sys_styling(sys_styling),
           token_view_styling(token_view_styling),
           sys_styling_sub_id(sys_styling.subscribe_to_changes([this](SystemStyling::ChangeId change_id) {
-              if (change_id == SystemStyling::ChangeId::FONT_SIZE || change_id == SystemStyling::ChangeId::FONT_NAME)
+              if (change_id == SystemStyling::ChangeId::FONT_SIZE ||
+                  change_id == SystemStyling::ChangeId::FONT_NAME ||
+                  change_id == SystemStyling::ChangeId::TEXT_DIRECTION)
               {
-                  current_font = this->sys_styling.get_loaded_font();
-                  line_height = detect_line_height(current_font) + line_padding;
-                  line_scroller.set_line_height_pixels(line_height);
-                  line_scroller.reset_buffer();  // need to re-wrap lines if font-size changed
+                  refresh_direction_and_font(true);
               }
               needs_render = true;
           })),
           token_view_styling_sub_id(token_view_styling.subscribe_to_changes([this]() {
               needs_render = true;
           })),
+          content_font_name(sys_styling.get_font_name()),
           current_font(sys_styling.get_loaded_font()),
           line_height(detect_line_height(sys_styling.get_font_name(), sys_styling.get_font_size()) + line_padding),
           line_scroller(
               reader,
               address,
               [this](const char *s, uint32_t len) {
+                  std::string logical(s, len);
+                  std::string visual = to_visual_line(logical, effective_rtl);
                   return line_fits_on_screen(
                       current_font,
                       SCREEN_WIDTH - line_padding * 2,
-                      s,
-                      len
+                      visual.c_str(),
+                      static_cast<uint32_t>(visual.size())
                   );
               },
-              line_height
+              line_height,
+              false
           ),
           line_scroll_throttle(250, 50),
           page_scroll_throttle(750, 150)
     {
+        refresh_direction_and_font(true);
     }
 
     ~TokenViewState()
@@ -171,14 +228,29 @@ bool TokenView::render(SDL_Surface *dest_surface, bool force_render)
             if (line->type == DisplayLine::Type::Text)
             {
                 const auto *text_line = static_cast<const TextLine *>(line);
-                const char *s = text_line->text.c_str();
-                auto surface = surface_unique_ptr { TTF_RenderUTF8_Shaded(font, s, theme.main_text, theme.background) };
-                SDL_Rect dest_rect = {
-                    static_cast<Sint16>(line_padding + (text_line->centered ? (SCREEN_WIDTH - 2 * line_padding - surface->w) /2 : 0)),
-                    static_cast<Sint16>(line_y + line_padding / 2),
-                    0, 0
-                };
-                SDL_BlitSurface(surface.get(), nullptr, dest_surface, &dest_rect);
+                std::string visual = to_visual_line(text_line->text, text_line->rtl);
+                if (!visual.empty())
+                {
+                    auto surface = surface_unique_ptr { TTF_RenderUTF8_Shaded(font, visual.c_str(), theme.main_text, theme.background) };
+                    if (surface)
+                    {
+                        Sint16 x = line_padding;
+                        if (text_line->centered)
+                        {
+                            x = static_cast<Sint16>(line_padding + (SCREEN_WIDTH - 2 * line_padding - surface->w) / 2);
+                        }
+                        else if (text_line->rtl)
+                        {
+                            x = static_cast<Sint16>(SCREEN_WIDTH - line_padding - surface->w);
+                        }
+                        SDL_Rect dest_rect = {
+                            x,
+                            static_cast<Sint16>(line_y + line_padding / 2),
+                            0, 0
+                        };
+                        SDL_BlitSurface(surface.get(), nullptr, dest_surface, &dest_rect);
+                    }
+                }
             }
             else if (line->type == DisplayLine::Type::Image || (line->type == DisplayLine::Type::ImageRef && i == 0))
             {

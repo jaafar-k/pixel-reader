@@ -1,6 +1,6 @@
 ## [Pixel Reader](https://github.com/ealang/pixel-reader)
 
-An ebook reader app for the Miyoo Mini. Supports epub and txt formats.
+An ebook reader app for the Miyoo Mini. Supports epub and txt formats, including RTL Arabic book content (shaping, bidi, right alignment).
 
 ![Screenshot](resources/demo.gif)
 
@@ -14,6 +14,12 @@ Supports Onion, MiniUI, and the default/factory OS.
 
 The default location for book files is `Media/Books`.
 
+### Arabic / RTL reading
+
+- Settings → **Text direction**: `Auto` (default), `LTR`, or `RTL`
+- **Auto** uses the EPUB `dc:language` tag when present, otherwise detects Arabic script in the text
+- Bundled `FreeSerif.ttf` provides Arabic Presentation Forms glyphs; it is selected automatically when the current font lacks Arabic coverage
+
 ## Development Reference
 
 ### Desktop Build
@@ -23,12 +29,16 @@ Install dependencies (Ubuntu):
 apt install make g++ libxml2-dev libzip-dev libsdl1.2-dev libsdl-ttf2.0-dev libsdl-image1.2-dev
 ```
 
+No extra libraries are required for RTL (Arabic joining + bidi are built into the reader).
+
 Build:
 ```
 make -j
 ```
 
 Find app in `build/reader`.
+
+Arabic sample text for manual checks: `src/sandbox/fixtures/arabic_sample.txt`.
 
 ### Miyoo Mini Cross-Compile
 

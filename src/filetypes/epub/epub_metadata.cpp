@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <string>
 
 NavPoint::NavPoint(const std::string &label)
     : NavPoint(label, "", "")
@@ -158,6 +159,29 @@ bool epub_parse_package_contents(const std::string &rootfile_path, const char *p
             if (toc_attr)
             {
                 out_package.toc_id = (const char*)toc_attr;
+            }
+        }
+    }
+
+    // dc:language from metadata (first match; libxml local name is "language")
+    {
+        xmlNodePtr package = elem_first_by_name(node, BAD_CAST "package");
+        xmlNodePtr metadata = elem_first_by_name(elem_first_child(package), BAD_CAST "metadata");
+        for (xmlNodePtr child = elem_first_child(metadata); child; child = child->next)
+        {
+            if (child->type != XML_ELEMENT_NODE || !child->name)
+            {
+                continue;
+            }
+            if (std::strcmp((const char *)child->name, "language") != 0)
+            {
+                continue;
+            }
+            xmlNodePtr text = elem_first_child(child);
+            if (text && text->type == XML_TEXT_NODE && text->content)
+            {
+                out_package.language = strip_whitespace((const char *)text->content);
+                break;
             }
         }
     }

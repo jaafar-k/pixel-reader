@@ -25,6 +25,7 @@ class TokenLineScroller
     std::optional<int> global_end_line;
 
     uint32_t line_height_pixels;
+    bool rtl = false;
     int current_line = 0;
 
     IndexedDequeue<std::unique_ptr<DisplayLine>> lines_buf;
@@ -44,7 +45,8 @@ public:
         const std::shared_ptr<DocReader> reader,
         DocAddr address,
         std::function<bool(const char *, uint32_t)> line_fits,
-        uint32_t line_height_pixels
+        uint32_t line_height_pixels,
+        bool rtl = false
     );
 
     const DisplayLine *get_line_relative(int offset);
@@ -53,6 +55,8 @@ public:
     void seek_to_address(DocAddr address);
     void reset_buffer();
     void set_line_height_pixels(uint32_t line_height_pixels);
+    void set_rtl(bool rtl);
+    bool get_rtl() const;
 
     std::optional<int> first_line_number() const;
     std::optional<int> end_line_number() const;

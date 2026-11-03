@@ -218,7 +218,8 @@ int main(int argc, char **argv)
         init_font_name,
         init_font_size,
         get_valid_theme(settings_get_color_theme(state_store).value_or(DEFAULT_COLOR_THEME)),
-        get_valid_shoulder_keymap(settings_get_shoulder_keymap(state_store).value_or(DEFAULT_SHOULDER_KEYMAP))
+        get_valid_shoulder_keymap(settings_get_shoulder_keymap(state_store).value_or(DEFAULT_SHOULDER_KEYMAP)),
+        settings_get_text_direction(state_store).value_or(DEFAULT_TEXT_DIRECTION)
     );
     sys_styling.subscribe_to_changes([&state_store, &sys_styling](SystemStyling::ChangeId) {
         // Persist changes
@@ -226,6 +227,7 @@ int main(int argc, char **argv)
         settings_set_font_name(state_store, sys_styling.get_font_name());
         settings_set_font_size(state_store, sys_styling.get_font_size());
         settings_set_shoulder_keymap(state_store, sys_styling.get_shoulder_keymap());
+        settings_set_text_direction(state_store, sys_styling.get_text_direction());
     });
 
     // Text Styling

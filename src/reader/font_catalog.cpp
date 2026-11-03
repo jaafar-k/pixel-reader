@@ -2,6 +2,7 @@
 
 #include "./config.h"
 #include "sys/filesystem.h"
+#include "util/sdl_font_cache.h"
 #include "util/str_utils.h"
 
 #include <algorithm>
@@ -93,5 +94,47 @@ std::string get_next_font_name(const std::string &font_name)
 {
     int i = get_font_index(font_name);
     return available_fonts[(i + 1) % available_fonts.size()];
+}
+
+bool font_supports_arabic(TTF_Font *font)
+{
+    if (!font)
+    {
+        return false;
+    }
+    // Arabic letter Alef
+    return TTF_GlyphIsProvided(font, 0x0627) != 0;
+}
+
+std::string get_content_font_name(const std::string &preferred_font_name, bool prefer_arabic)
+{
+    if (!prefer_arabic)
+    {
+        return get_valid_font_name(preferred_font_name);
+    }
+
+    TTF_Font *preferred = cached_load_font(preferred_font_name, DEFAULT_FONT_SIZE, FontLoadErrorOpt::NoThrow);
+    if (preferred && font_supports_arabic(preferred))
+    {
+        return get_valid_font_name(preferred_font_name);
+    }
+
+    if (std::filesystem::exists(ARABIC_FONT_NAME))
+    {
+        return ARABIC_FONT_NAME;
+    }
+
+    // Fall back to any discovered font that has Arabic glyphs.
+    discover_fonts();
+    for (const auto &path : available_fonts)
+    {
+        TTF_Font *f = cached_load_font(path, DEFAULT_FONT_SIZE, FontLoadErrorOpt::NoThrow);
+        if (f && font_supports_arabic(f))
+        {
+            return path;
+        }
+    }
+
+    return get_valid_font_name(preferred_font_name);
 }
 

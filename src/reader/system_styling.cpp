@@ -14,6 +14,7 @@ struct SystemStylingState {
     ColorTheme loaded_color_theme;
 
     std::string shoulder_keymap;
+    TextDirection text_direction;
 
     uint32_t next_subscriber_id = 1;
     std::unordered_map<uint32_t, std::function<void(SystemStyling::ChangeId)>> subscribers;
@@ -22,17 +23,25 @@ struct SystemStylingState {
         const std::string &font_name,
         uint32_t font_size,
         const std::string &color_theme,
-        const std::string &shoulder_keymap
+        const std::string &shoulder_keymap,
+        TextDirection text_direction
     ) : font_name(font_name),
         font_size(font_size),
         color_theme(color_theme),
         loaded_color_theme(get_color_theme(color_theme)),
-        shoulder_keymap(shoulder_keymap)
+        shoulder_keymap(shoulder_keymap),
+        text_direction(text_direction)
     {}
 };
 
-SystemStyling::SystemStyling(const std::string &font_name, uint32_t font_size, const std::string &color_theme, const std::string &shoulder_keymap)
-    : state(std::make_unique<SystemStylingState>(font_name, font_size, color_theme, shoulder_keymap))
+SystemStyling::SystemStyling(
+    const std::string &font_name,
+    uint32_t font_size,
+    const std::string &color_theme,
+    const std::string &shoulder_keymap,
+    TextDirection text_direction
+)
+    : state(std::make_unique<SystemStylingState>(font_name, font_size, color_theme, shoulder_keymap, text_direction))
 {
 }
 
@@ -123,6 +132,20 @@ void SystemStyling::set_shoulder_keymap(const std::string &keymap)
     {
         state->shoulder_keymap = keymap;
         notify_subscribers(ChangeId::SHOULDER_KEYMAP);
+    }
+}
+
+TextDirection SystemStyling::get_text_direction() const
+{
+    return state->text_direction;
+}
+
+void SystemStyling::set_text_direction(TextDirection direction)
+{
+    if (state->text_direction != direction)
+    {
+        state->text_direction = direction;
+        notify_subscribers(ChangeId::TEXT_DIRECTION);
     }
 }
 

@@ -47,6 +47,7 @@ struct EpubReaderState
     zip_t *zip = nullptr;
 
     std::string package_md5;
+    std::string language;
 
     std::unique_ptr<EpubDocIndex> doc_index;
     std::unique_ptr<EpubTocIndex> toc_index;
@@ -123,6 +124,7 @@ bool EPubReader::open(DocReaderCache &cache)
             std::cerr << "Failed to parse " << rootfile_path << std::endl;
             return false;
         }
+        state->language = package.language;
     }
 
     std::vector<NavPoint> navmap;
@@ -215,6 +217,11 @@ bool EPubReader::is_open() const
 std::string EPubReader::get_id() const
 {
     return state->package_md5;
+}
+
+std::string EPubReader::get_language() const
+{
+    return state->language;
 }
 
 const std::vector<TocItem> &EPubReader::get_table_of_contents() const

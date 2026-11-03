@@ -22,6 +22,7 @@ public:
     bool is_open() const override;
 
     std::string get_id() const override;
+    std::string get_language() const override;
 
     const std::vector<TocItem> &get_table_of_contents() const override;
     TocPosition get_toc_position(const DocAddr &address) const override;

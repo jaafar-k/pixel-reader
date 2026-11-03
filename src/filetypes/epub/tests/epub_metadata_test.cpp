@@ -249,3 +249,26 @@ TEST(EPUB_METADATA, epub_parse_nav__nested)
     ASSERT_TRUE(epub_parse_nav("root/nav.xhtml", xml, navmap));
     ASSERT_EQ(navmap, expected_navmap);
 }
+
+TEST(EPUB_METADATA, epub_parse_package_language)
+{
+    const char *xml = (
+        "<?xml version='1.0' encoding='utf-8'?>"
+        "<package>"
+          "<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"
+            "<dc:title>Test</dc:title>"
+            "<dc:language>ar</dc:language>"
+          "</metadata>"
+          "<manifest>"
+            "<item id=\"c1\" href=\"c1.xhtml\" media-type=\"application/xhtml+xml\"/>"
+          "</manifest>"
+          "<spine toc=\"\">"
+            "<itemref idref=\"c1\"/>"
+          "</spine>"
+        "</package>"
+    );
+
+    PackageContents package;
+    ASSERT_TRUE(epub_parse_package_contents("OEBPS/content.opf", xml, package));
+    EXPECT_EQ(package.language, "ar");
+}

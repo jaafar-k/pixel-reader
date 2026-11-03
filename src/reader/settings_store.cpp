@@ -14,6 +14,7 @@ constexpr const char *SETTINGS_KEY_COLOR_THEME = "color_theme";
 constexpr const char *SETTINGS_KEY_FONT_NAME = "font_name";
 constexpr const char *SETTINGS_KEY_FONT_SIZE = "font_size";
 constexpr const char *SETTINGS_PROGRESS_REPORTING = "progress_reporting";
+constexpr const char *SETTINGS_TEXT_DIRECTION = "text_direction";
 
 } // namespace
 
@@ -91,4 +92,19 @@ std::optional<uint32_t> settings_get_font_size(const StateStore &state_store)
 void settings_set_font_size(StateStore &state_store, uint32_t font_size)
 {
     state_store.set_setting(SETTINGS_KEY_FONT_SIZE, std::to_string(font_size));
+}
+
+std::optional<TextDirection> settings_get_text_direction(const StateStore &state_store)
+{
+    auto value = state_store.get_setting(SETTINGS_TEXT_DIRECTION);
+    if (!value)
+    {
+        return std::nullopt;
+    }
+    return decode_text_direction(*value);
+}
+
+void settings_set_text_direction(StateStore &state_store, TextDirection direction)
+{
+    state_store.set_setting(SETTINGS_TEXT_DIRECTION, encode_text_direction(direction));
 }

@@ -2,6 +2,7 @@
 #define SETTINGS_STORE_H_
 
 #include "./reader/progress_reporting.h"
+#include "./reader/text_direction.h"
 
 #include <optional>
 #include <string>
@@ -31,5 +32,9 @@ void settings_set_font_name(StateStore &state_store, const std::string &font_nam
 // Font size
 std::optional<uint32_t> settings_get_font_size(const StateStore &state_store);
 void settings_set_font_size(StateStore &state_store, uint32_t font_size);
+
+// Text direction
+std::optional<TextDirection> settings_get_text_direction(const StateStore &state_store);
+void settings_set_text_direction(StateStore &state_store, TextDirection direction);
 
 #endif

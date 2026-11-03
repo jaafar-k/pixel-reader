@@ -8,6 +8,7 @@
 #include "reader/settings_store.h"
 #include "reader/shoulder_keymap.h"
 #include "reader/system_styling.h"
+#include "reader/text_direction.h"
 #include "sys/keymap.h"
 #include "sys/screen.h"
 #include "util/sdl_font_cache.h"
@@ -25,7 +26,7 @@ SettingsView::SettingsView(
     styling_sub_id(sys_styling.subscribe_to_changes([this](SystemStyling::ChangeId) {
         needs_render = true;
     })),
-    num_menu_items(5)
+    num_menu_items(6)
 {
 }
 
@@ -97,6 +98,12 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
             line_selected == 4 ? style_hl : style_normal
         );
 
+        auto text_dir_label = render_text("Text direction:", style_label);
+        auto text_dir_value = render_text(
+            text_direction_display_name(sys_styling.get_text_direction()),
+            line_selected == 5 ? style_hl : style_normal
+        );
+
         Uint16 content_w;
         {
             int arrow_w = left_arrow->w + right_arrow->w;
@@ -110,12 +117,14 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
                 shoulder_keymap_label->w,
                 shoulder_keymap_value->w + arrow_w,
                 progress_label->w,
-                progress_value->w + arrow_w
+                progress_value->w + arrow_w,
+                text_dir_label->w,
+                text_dir_value->w + arrow_w
             };
             content_w = *std::max_element(widths.begin(), widths.end());
         }
 
-        int num_menu_items = 5;
+        int num_menu_items = 6;
         Uint16 text_padding = 5;
         Uint16 max_content_h = SCREEN_HEIGHT - DIALOG_BORDER_WIDTH * 2;
         Uint16 line_height = theme_label->h + theme_value->h;
@@ -208,6 +217,13 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
             {
                 push_text(progress_label.get());
                 push_text(progress_value.get(), line_selected == 4);
+                rect.y += text_padding;
+            }
+
+            if (is_line_shown(5))
+            {
+                push_text(text_dir_label.get());
+                push_text(text_dir_value.get(), line_selected == 5);
             }
         }
 
@@ -274,6 +290,20 @@ void SettingsView::on_change_progress()
     );
 }
 
+void SettingsView::on_change_text_direction(int dir)
+{
+    TextDirection cur = sys_styling.get_text_direction();
+    // Cycle forward for either direction; left goes reverse by cycling twice
+    if (dir < 0)
+    {
+        sys_styling.set_text_direction(get_next_text_direction(get_next_text_direction(cur)));
+    }
+    else
+    {
+        sys_styling.set_text_direction(get_next_text_direction(cur));
+    }
+}
+
 void SettingsView::on_keypress(SDLKey key)
 {
     switch (key) {
@@ -305,9 +335,13 @@ void SettingsView::on_keypress(SDLKey key)
                 {
                     on_change_shoulder_keymap(dir);
                 }
-                else
+                else if (line_selected == 4)
                 {
                     on_change_progress();
+                }
+                else
+                {
+                    on_change_text_direction(dir);
                 }
                 needs_render = true;
             }

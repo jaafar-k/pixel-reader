@@ -2,6 +2,7 @@
 #define SYSTEM_STYLING_H_
 
 #include "reader/color_theme.h"
+#include "reader/text_direction.h"
 
 #include <functional>
 #include <memory>
@@ -18,6 +19,7 @@ public:
         FONT_SIZE,
         COLOR_THEME,
         SHOULDER_KEYMAP,
+        TEXT_DIRECTION,
     };
 
 private:
@@ -29,7 +31,8 @@ public:
         const std::string &font_name,
         uint32_t font_size,
         const std::string &color_theme,
-        const std::string &shoulder_keymap
+        const std::string &shoulder_keymap,
+        TextDirection text_direction = TextDirection::Auto
     );
     virtual ~SystemStyling();
 
@@ -52,6 +55,10 @@ public:
     // shoulder keymap
     const std::string &get_shoulder_keymap() const;
     void set_shoulder_keymap(const std::string &keymap);
+
+    // Text direction (book content)
+    TextDirection get_text_direction() const;
+    void set_text_direction(TextDirection direction);
 
     // Subscribe to any changes
     uint32_t subscribe_to_changes(std::function<void(ChangeId)> callback);

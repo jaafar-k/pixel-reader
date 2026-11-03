@@ -27,6 +27,7 @@ class SettingsView: public View
     void on_change_font_name(int dir);
     void on_change_shoulder_keymap(int dir);
     void on_change_progress();
+    void on_change_text_direction(int dir);
 
 public:
     SettingsView(

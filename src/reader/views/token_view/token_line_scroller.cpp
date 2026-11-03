@@ -112,12 +112,13 @@ std::vector<std::unique_ptr<DisplayLine>> TokenLineScroller::render_display_line
 
         DocAddr address = token.address;
         std::vector<std::unique_ptr<DisplayLine>> lines;
-        wrap_lines(text.c_str(), line_fits, [type=token.type, &lines, &address, extra_text_width](const char *str, uint32_t len) {
+        bool line_rtl = rtl;
+        wrap_lines(text.c_str(), line_fits, [type=token.type, &lines, &address, extra_text_width, line_rtl](const char *str, uint32_t len) {
             std::string line_text(str, len);
             bool centered = type == TokenType::Header;
 
             lines.push_back(
-                std::make_unique<TextLine>(address, line_text, centered)
+                std::make_unique<TextLine>(address, line_text, centered, line_rtl)
             );
 
             address += get_address_width(line_text);
@@ -199,12 +200,14 @@ TokenLineScroller::TokenLineScroller(
     const std::shared_ptr<DocReader> reader,
     DocAddr address,
     std::function<bool(const char *, uint32_t)> line_fits,
-    uint32_t line_height_pixels
+    uint32_t line_height_pixels,
+    bool rtl
 ) : reader(reader),
     forward_it(nullptr),
     backward_it(nullptr),
     line_fits(line_fits),
-    line_height_pixels(line_height_pixels)
+    line_height_pixels(line_height_pixels),
+    rtl(rtl)
 {
     initialize_buffer_at(address);
 }
@@ -266,6 +269,16 @@ void TokenLineScroller::reset_buffer()
 void TokenLineScroller::set_line_height_pixels(uint32_t new_height)
 {
     line_height_pixels = new_height;
+}
+
+void TokenLineScroller::set_rtl(bool new_rtl)
+{
+    rtl = new_rtl;
+}
+
+bool TokenLineScroller::get_rtl() const
+{
+    return rtl;
 }
 
 std::optional<int> TokenLineScroller::first_line_number() const

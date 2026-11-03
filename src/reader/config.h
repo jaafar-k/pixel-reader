@@ -1,6 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#include "reader/text_direction.h"
+
 #define TARGET_FPS 20
 
 #define IDLE_SAVE_TIME_SEC 60
@@ -8,6 +10,7 @@
 #define FONT_DIR            "resources/fonts"
 #define DEFAULT_FONT_NAME   "resources/fonts/DejaVuSans.ttf"
 #define SYSTEM_FONT         "resources/fonts/DejaVuSansMono.ttf"
+#define ARABIC_FONT_NAME    "resources/fonts/FreeSerif.ttf"
 
 #define MIN_FONT_SIZE      18
 #define MAX_FONT_SIZE      40
@@ -32,6 +35,7 @@
 
 #define DEFAULT_SHOW_PROGRESS true
 #define DEFAULT_SHOULDER_KEYMAP "LR"
+#define DEFAULT_TEXT_DIRECTION TextDirection::Auto
 
 #define DEFAULT_PROGRESS_REPORTING ProgressReporting::GLOBAL_PERCENT
 
