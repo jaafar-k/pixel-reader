@@ -57,6 +57,7 @@ public:
 
     void set_cursor_pos(const std::string &entry);
     void set_cursor_pos(uint32_t pos);
+    uint32_t get_cursor_pos() const;
 
     void close();
 

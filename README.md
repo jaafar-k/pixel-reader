@@ -18,7 +18,17 @@ The default location for book files is `Media/Books`.
 
 - Settings → **Text direction**: `Auto` (default), `LTR`, or `RTL`
 - **Auto** uses the EPUB `dc:language` tag when present, otherwise detects Arabic script in the text
-- Bundled `FreeSerif.ttf` provides Arabic Presentation Forms glyphs; it is selected automatically when the current font lacks Arabic coverage
+- Bundled `ui_font_ar.ttf` is always used for Arabic/RTL content, regardless of the selected font
+
+### Bookmarks
+
+While reading:
+
+- **Y** — add or remove a bookmark at the current position
+- **START** — open the bookmarks list (same style as TOC)
+- In the bookmarks list: **A** jump, **Y** delete, **B** / **START** close
+
+Bookmarks are stored per book (up to 64) and do not affect scroll/render performance.
 
 ## Development Reference
 

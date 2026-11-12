@@ -10,7 +10,7 @@
 #define FONT_DIR            "resources/fonts"
 #define DEFAULT_FONT_NAME   "resources/fonts/DejaVuSans.ttf"
 #define SYSTEM_FONT         "resources/fonts/DejaVuSansMono.ttf"
-#define ARABIC_FONT_NAME    "resources/fonts/FreeSerif.ttf"
+#define ARABIC_FONT_NAME    "resources/fonts/ui_font_ar.ttf"
 
 #define MIN_FONT_SIZE      18
 #define MAX_FONT_SIZE      40
@@ -38,5 +38,7 @@
 #define DEFAULT_TEXT_DIRECTION TextDirection::Auto
 
 #define DEFAULT_PROGRESS_REPORTING ProgressReporting::GLOBAL_PERCENT
+
+#define MAX_BOOKMARKS 64
 
 #endif

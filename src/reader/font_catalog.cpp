@@ -113,12 +113,7 @@ std::string get_content_font_name(const std::string &preferred_font_name, bool p
         return get_valid_font_name(preferred_font_name);
     }
 
-    TTF_Font *preferred = cached_load_font(preferred_font_name, DEFAULT_FONT_SIZE, FontLoadErrorOpt::NoThrow);
-    if (preferred && font_supports_arabic(preferred))
-    {
-        return get_valid_font_name(preferred_font_name);
-    }
-
+    // Always use the dedicated Arabic font for RTL/Arabic content.
     if (std::filesystem::exists(ARABIC_FONT_NAME))
     {
         return ARABIC_FONT_NAME;

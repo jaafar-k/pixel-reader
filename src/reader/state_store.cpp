@@ -1,6 +1,7 @@
 #include "./state_store.h"
 #include "util/key_value_file.h"
 
+#include <algorithm>
 #include <fstream>
 #include <unordered_map>
 
@@ -80,6 +81,60 @@ std::optional<DocAddr> load_book_address(const std::filesystem::path &path)
         return std::nullopt;
     }
     return decode_address(it->second);
+}
+
+/////////////////////////////////////
+// Bookmarks Store
+
+std::filesystem::path bookmarks_store_path_for_book(const std::filesystem::path &base_path, const std::string &book_id)
+{
+    return base_path / (book_id + ".bookmarks");
+}
+
+void write_bookmarks(const std::filesystem::path &path, const std::vector<Bookmark> &bookmarks)
+{
+    std::ofstream fp(path);
+    for (const auto &bm : bookmarks)
+    {
+        fp << encode_address(bm.address) << "|" << bm.label << "\n";
+    }
+}
+
+std::vector<Bookmark> load_bookmarks(const std::filesystem::path &path)
+{
+    std::vector<Bookmark> bookmarks;
+    std::ifstream fp(path);
+    if (!fp)
+    {
+        return bookmarks;
+    }
+
+    std::string line;
+    while (std::getline(fp, line))
+    {
+        if (line.size() < 16)
+        {
+            continue;
+        }
+
+        Bookmark bm;
+        bm.address = decode_address(line.substr(0, 16));
+        if (line.size() > 17 && line[16] == '|')
+        {
+            bm.label = line.substr(17);
+            if (!bm.label.empty() && bm.label.back() == '\r')
+            {
+                bm.label.pop_back();
+            }
+        }
+        bookmarks.push_back(std::move(bm));
+    }
+
+    // Keep document order for TOC-like browsing
+    std::sort(bookmarks.begin(), bookmarks.end(), [](const Bookmark &a, const Bookmark &b) {
+        return a.address < b.address;
+    });
+    return bookmarks;
 }
 
 /////////////////////////////////////
@@ -184,6 +239,26 @@ void StateStore::set_book_address(const std::string &book_id, DocAddr address)
     }
 }
 
+const std::vector<Bookmark> &StateStore::get_bookmarks(const std::string &book_id) const
+{
+    auto it = book_bookmarks.find(book_id);
+    if (it != book_bookmarks.end())
+    {
+        return it->second;
+    }
+
+    book_bookmarks[book_id] = load_bookmarks(
+        bookmarks_store_path_for_book(book_data_root_path, book_id)
+    );
+    return book_bookmarks[book_id];
+}
+
+void StateStore::set_bookmarks(const std::string &book_id, std::vector<Bookmark> bookmarks)
+{
+    book_bookmarks[book_id] = std::move(bookmarks);
+    bookmarks_dirty.emplace(book_id);
+}
+
 const string_unordered_map &StateStore::get_reader_cache(const std::string &book_id) const
 {
     auto it = book_reader_caches.find(book_id);
@@ -261,6 +336,18 @@ void StateStore::flush() const
             );
         }
         reader_cache_dirty.clear();
+    }
+
+    // bookmarks
+    {
+        for (const auto &book_id : bookmarks_dirty)
+        {
+            write_bookmarks(
+                bookmarks_store_path_for_book(book_data_root_path, book_id),
+                book_bookmarks[book_id]
+            );
+        }
+        bookmarks_dirty.clear();
     }
 
     if (settings_dirty)

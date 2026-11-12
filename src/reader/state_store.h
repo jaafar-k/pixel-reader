@@ -6,9 +6,17 @@
 #include <filesystem>
 #include <optional>
 #include <set>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 using string_unordered_map = std::unordered_map<std::string, std::string>;
+
+struct Bookmark
+{
+    DocAddr address = 0;
+    std::string label;
+};
 
 class StateStore {
     mutable bool activity_dirty = false;
@@ -26,6 +34,10 @@ class StateStore {
     // reader cache
     mutable std::unordered_map<std::string, string_unordered_map> book_reader_caches;
     mutable std::set<std::string> reader_cache_dirty;
+
+    // bookmarks (per-book)
+    mutable std::unordered_map<std::string, std::vector<Bookmark>> book_bookmarks;
+    mutable std::set<std::string> bookmarks_dirty;
 
     // settings
     std::filesystem::path settings_store_path;
@@ -47,6 +59,10 @@ public:
     // book addresses
     std::optional<DocAddr> get_book_address(const std::string &book_id) const;
     void set_book_address(const std::string &book_id, DocAddr address);
+
+    // bookmarks
+    const std::vector<Bookmark> &get_bookmarks(const std::string &book_id) const;
+    void set_bookmarks(const std::string &book_id, std::vector<Bookmark> bookmarks);
 
     // reader cache
     const string_unordered_map &get_reader_cache(const std::string &book_id) const;

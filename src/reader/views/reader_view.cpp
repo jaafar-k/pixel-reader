@@ -1,9 +1,12 @@
 #include "./reader_view.h"
 
+#include "./popup_view.h"
 #include "./selection_menu.h"
 #include "./token_view/token_view.h"
 #include "./token_view/token_view_styling.h"
 
+#include "reader/config.h"
+#include "reader/state_store.h"
 #include "reader/system_styling.h"
 #include "reader/text_direction.h"
 #include "reader/view_stack.h"
@@ -13,7 +16,9 @@
 #include "sys/screen.h"
 #include "util/sdl_font_cache.h"
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
 
 struct ReaderViewState
 {
@@ -28,16 +33,30 @@ struct ReaderViewState
     uint32_t token_view_styling_sub_id;
 
     ViewStack &view_stack;
+    StateStore &state_store;
+    std::string book_id;
 
     std::unique_ptr<TokenView> token_view;
-    
-    ReaderViewState(std::filesystem::path path, DocAddr seek_address, std::shared_ptr<DocReader> reader, SystemStyling &sys_styling, TokenViewStyling &token_view_styling, uint32_t token_view_styling_sub_id, ViewStack &view_stack)
+
+    ReaderViewState(
+        std::filesystem::path path,
+        DocAddr seek_address,
+        std::shared_ptr<DocReader> reader,
+        SystemStyling &sys_styling,
+        TokenViewStyling &token_view_styling,
+        uint32_t token_view_styling_sub_id,
+        ViewStack &view_stack,
+        StateStore &state_store,
+        std::string book_id
+    )
         : filename(path.filename()),
           reader(reader),
           sys_styling(sys_styling),
           token_view_styling(token_view_styling),
           token_view_styling_sub_id(token_view_styling_sub_id),
           view_stack(view_stack),
+          state_store(state_store),
+          book_id(std::move(book_id)),
           token_view(std::make_unique<TokenView>(
               reader,
               seek_address,
@@ -63,6 +82,51 @@ DocAddr get_current_address(const ReaderViewState &state)
     }
 
     return 0;
+}
+
+std::string make_bookmark_label(const ReaderViewState &state, DocAddr address)
+{
+    const auto &toc = state.reader->get_table_of_contents();
+    auto toc_position = state.reader->get_toc_position(address);
+    uint32_t progress_percent = state.reader->get_global_progress_percent(address);
+
+    std::string title = state.filename;
+    if (toc_position.toc_index < toc.size())
+    {
+        title = toc[toc_position.toc_index].display_name;
+    }
+
+    return title + " · " + std::to_string(progress_percent) + "%";
+}
+
+std::vector<std::string> bookmark_menu_names(const std::vector<Bookmark> &bookmarks)
+{
+    std::vector<std::string> names;
+    names.reserve(bookmarks.size());
+    for (const auto &bm : bookmarks)
+    {
+        names.push_back(bm.label.empty() ? encode_address(bm.address) : bm.label);
+    }
+    return names;
+}
+
+bool bookmarks_rtl(const ReaderViewState &state, const std::vector<Bookmark> &bookmarks)
+{
+    std::string sample;
+    for (const auto &bm : bookmarks)
+    {
+        sample += bm.label;
+        sample.push_back(' ');
+        if (sample.size() > 512)
+        {
+            break;
+        }
+    }
+    return resolve_effective_rtl(
+        state.sys_styling.get_text_direction(),
+        state.reader->get_language(),
+        sample
+    );
 }
 
 void open_toc_menu(ReaderView &reader_view, ReaderViewState &state)
@@ -129,6 +193,122 @@ void open_toc_menu(ReaderView &reader_view, ReaderViewState &state)
     state.view_stack.push(toc_select_menu);
 }
 
+void open_bookmarks_menu(ReaderView &reader_view, ReaderViewState &state)
+{
+    auto bookmarks = std::make_shared<std::vector<Bookmark>>(
+        state.state_store.get_bookmarks(state.book_id)
+    );
+    if (bookmarks->empty())
+    {
+        state.view_stack.push(std::make_shared<PopupView>(
+            "No bookmarks",
+            SYSTEM_FONT,
+            state.sys_styling
+        ));
+        return;
+    }
+
+    auto menu = std::make_shared<SelectionMenu>(
+        bookmark_menu_names(*bookmarks),
+        state.sys_styling
+    );
+    menu->set_rtl(bookmarks_rtl(state, *bookmarks));
+    menu->set_close_on_select();
+
+    // Jump nearest bookmark to current position
+    {
+        DocAddr current = get_current_address(state);
+        uint32_t best = 0;
+        for (uint32_t i = 0; i < bookmarks->size(); ++i)
+        {
+            if ((*bookmarks)[i].address <= current)
+            {
+                best = i;
+            }
+        }
+        menu->set_cursor_pos(best);
+    }
+
+    menu->set_on_selection([&reader_view, bookmarks](uint32_t index) {
+        if (index < bookmarks->size())
+        {
+            reader_view.seek_to_address((*bookmarks)[index].address);
+        }
+    });
+
+    menu->set_default_on_keypress(
+        [&state, bookmarks](SDLKey key, SelectionMenu &menu_ref) {
+            if (key == SW_BTN_START)
+            {
+                menu_ref.close();
+                return;
+            }
+
+            // Y deletes the focused bookmark
+            if (key != SW_BTN_Y || bookmarks->empty())
+            {
+                return;
+            }
+
+            uint32_t index = menu_ref.get_cursor_pos();
+            if (index >= bookmarks->size())
+            {
+                return;
+            }
+
+            bookmarks->erase(bookmarks->begin() + static_cast<std::ptrdiff_t>(index));
+            state.state_store.set_bookmarks(state.book_id, *bookmarks);
+
+            if (bookmarks->empty())
+            {
+                menu_ref.close();
+                return;
+            }
+
+            menu_ref.set_entries(bookmark_menu_names(*bookmarks));
+            menu_ref.set_cursor_pos(std::min(index, static_cast<uint32_t>(bookmarks->size()) - 1));
+        }
+    );
+
+    state.view_stack.push(menu);
+}
+
+void toggle_bookmark_at_current(ReaderViewState &state)
+{
+    DocAddr address = get_current_address(state);
+    auto bookmarks = state.state_store.get_bookmarks(state.book_id);
+
+    auto it = std::find_if(bookmarks.begin(), bookmarks.end(), [address](const Bookmark &bm) {
+        return bm.address == address;
+    });
+
+    if (it != bookmarks.end())
+    {
+        bookmarks.erase(it);
+        state.state_store.set_bookmarks(state.book_id, std::move(bookmarks));
+        return;
+    }
+
+    if (bookmarks.size() >= MAX_BOOKMARKS)
+    {
+        // Drop earliest in document order to make room
+        bookmarks.erase(bookmarks.begin());
+    }
+
+    Bookmark bm;
+    bm.address = address;
+    bm.label = make_bookmark_label(state, address);
+
+    auto insert_at = std::lower_bound(
+        bookmarks.begin(),
+        bookmarks.end(),
+        bm,
+        [](const Bookmark &a, const Bookmark &b) { return a.address < b.address; }
+    );
+    bookmarks.insert(insert_at, std::move(bm));
+    state.state_store.set_bookmarks(state.book_id, std::move(bookmarks));
+}
+
 } // namespace
 
 ReaderView::ReaderView(
@@ -137,7 +317,9 @@ ReaderView::ReaderView(
     DocAddr seek_address,
     SystemStyling &sys_styling,
     TokenViewStyling &token_view_styling,
-    ViewStack &view_stack
+    ViewStack &view_stack,
+    StateStore &state_store,
+    std::string book_id
 ) : state(std::make_unique<ReaderViewState>(
         path,
         seek_address,
@@ -147,7 +329,9 @@ ReaderView::ReaderView(
         token_view_styling.subscribe_to_changes([this]() {
             update_token_view_title(get_current_address(*state));
         }),
-        view_stack
+        view_stack,
+        state_store,
+        std::move(book_id)
     ))
 {
     update_token_view_title(seek_address);
@@ -218,6 +402,12 @@ void ReaderView::on_keypress(SDLKey key)
             break;
         case SW_BTN_SELECT:
             open_toc_menu(*this, *state);
+            break;
+        case SW_BTN_START:
+            open_bookmarks_menu(*this, *state);
+            break;
+        case SW_BTN_Y:
+            toggle_bookmark_at_current(*state);
             break;
         default:
             state->token_view->on_keypress(key);

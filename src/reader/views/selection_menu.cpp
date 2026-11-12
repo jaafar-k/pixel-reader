@@ -102,6 +102,11 @@ void SelectionMenu::set_cursor_pos(const std::string &entry)
     }
 }
 
+uint32_t SelectionMenu::get_cursor_pos() const
+{
+    return cursor_pos;
+}
+
 void SelectionMenu::set_cursor_pos(uint32_t new_cursor_pos)
 {
     if (new_cursor_pos >= entries.size())

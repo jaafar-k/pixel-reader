@@ -67,7 +67,9 @@ void ReaderBootstrapView::load_reader()
         state_store.get_book_address(book_id).value_or(0),
         sys_styling,
         token_view_styling,
-        view_stack
+        view_stack,
+        state_store,
+        book_id
     );
 
     reader_view->set_on_change_address([&state_store, book_id](DocAddr addr) {

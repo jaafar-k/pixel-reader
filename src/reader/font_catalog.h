@@ -10,7 +10,7 @@ std::string get_prev_font_name(const std::string &font_name);
 std::string get_next_font_name(const std::string &font_name);
 
 bool font_supports_arabic(TTF_Font *font);
-// Prefer Arabic-capable font when reading RTL content.
+// Always use ARABIC_FONT_NAME for RTL/Arabic content, ignoring the selected font.
 std::string get_content_font_name(const std::string &preferred_font_name, bool prefer_arabic);
 
 #endif
