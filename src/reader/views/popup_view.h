@@ -2,6 +2,7 @@
 #define POPUP_VIEW_H_
 
 #include "reader/view.h"
+#include "util/timer.h"
 
 #include <string>
 
@@ -16,8 +17,17 @@ class PopupView: public View
     std::string font_name;
     SystemStyling &styling;
     uint32_t styling_sub_id;
+    uint32_t auto_dismiss_ms = 0;
+    Timer life_timer;
+
 public:
-    PopupView(const std::string &message, std::string font_name, SystemStyling &styling);
+    // auto_dismiss_ms > 0 closes the popup without a keypress
+    PopupView(
+        const std::string &message,
+        std::string font_name,
+        SystemStyling &styling,
+        uint32_t auto_dismiss_ms = 0
+    );
     virtual ~PopupView();
 
     bool render(SDL_Surface *dest_surface, bool force_render) override;

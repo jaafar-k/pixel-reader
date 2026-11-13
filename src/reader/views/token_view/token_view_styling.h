@@ -26,6 +26,9 @@ public:
     ProgressReporting get_progress_reporting() const;
     void set_progress_reporting(ProgressReporting progress_reporting);
 
+    // Off → Chapter % → Book % → Off
+    void cycle_title_bar_progress();
+
     // Subscribe to any changes
     uint32_t subscribe_to_changes(std::function<void()> callback);
     void unsubscribe_from_changes(uint32_t sub_id);

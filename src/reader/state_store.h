@@ -3,6 +3,7 @@
 
 #include "doc_api/doc_addr.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <set>
@@ -30,6 +31,7 @@ class StateStore {
 
     // book addresses
     std::filesystem::path book_data_root_path;
+    mutable uint32_t last_address_flush_ms = 0;
 
     // reader cache
     mutable std::unordered_map<std::string, string_unordered_map> book_reader_caches;

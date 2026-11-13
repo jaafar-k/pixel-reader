@@ -59,6 +59,16 @@ std::pair<SDLKey, SDLKey> get_shoulder_keymap_lr(const std::string &keymap)
     return keymaps[get_keymap_index(keymap)].second.lr_binding;
 }
 
+std::pair<SDLKey, SDLKey> get_shoulder_keymap_chapter_lr(const std::string &keymap)
+{
+    // Opposite of the page-turn binding
+    if (get_shoulder_keymap_lr(keymap).first == SW_BTN_L1)
+    {
+        return {SW_BTN_L2, SW_BTN_R2};
+    }
+    return {SW_BTN_L1, SW_BTN_R1};
+}
+
 const std::string &get_shoulder_keymap_display_name(const std::string &keymap)
 {
     return keymaps[get_keymap_index(keymap)].second.display_name;

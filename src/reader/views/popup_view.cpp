@@ -6,13 +6,19 @@
 #include "util/sdl_font_cache.h"
 #include "util/sdl_utils.h"
 
-PopupView::PopupView(const std::string &message, std::string font_name, SystemStyling &styling)
+PopupView::PopupView(
+    const std::string &message,
+    std::string font_name,
+    SystemStyling &styling,
+    uint32_t auto_dismiss_ms
+)
     : message(message)
     , font_name(font_name)
     , styling(styling)
     , styling_sub_id(styling.subscribe_to_changes([this](SystemStyling::ChangeId) {
           _needs_render = true;
       }))
+    , auto_dismiss_ms(auto_dismiss_ms)
 {
 }
 
@@ -60,7 +66,15 @@ bool PopupView::render(SDL_Surface *dest_surface, bool force_render)
 
 bool PopupView::is_done()
 {
-    return _is_done;
+    if (_is_done)
+    {
+        return true;
+    }
+    if (auto_dismiss_ms > 0 && life_timer.elapsed_ms() >= auto_dismiss_ms)
+    {
+        return true;
+    }
+    return false;
 }
 
 bool PopupView::is_modal()

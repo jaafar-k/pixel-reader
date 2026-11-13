@@ -6,6 +6,7 @@
 #include "./token_view/token_view_styling.h"
 
 #include "reader/config.h"
+#include "reader/shoulder_keymap.h"
 #include "reader/state_store.h"
 #include "reader/system_styling.h"
 #include "reader/text_direction.h"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <utility>
 
 struct ReaderViewState
 {
@@ -273,6 +275,17 @@ void open_bookmarks_menu(ReaderView &reader_view, ReaderViewState &state)
     state.view_stack.push(menu);
 }
 
+void flash_bookmark_toast(ReaderViewState &state, const char *message)
+{
+    constexpr uint32_t toast_ms = 900;
+    state.view_stack.push(std::make_shared<PopupView>(
+        message,
+        SYSTEM_FONT,
+        state.sys_styling,
+        toast_ms
+    ));
+}
+
 void toggle_bookmark_at_current(ReaderViewState &state)
 {
     DocAddr address = get_current_address(state);
@@ -286,6 +299,7 @@ void toggle_bookmark_at_current(ReaderViewState &state)
     {
         bookmarks.erase(it);
         state.state_store.set_bookmarks(state.book_id, std::move(bookmarks));
+        flash_bookmark_toast(state, "Removed");
         return;
     }
 
@@ -307,6 +321,7 @@ void toggle_bookmark_at_current(ReaderViewState &state)
     );
     bookmarks.insert(insert_at, std::move(bm));
     state.state_store.set_bookmarks(state.book_id, std::move(bookmarks));
+    flash_bookmark_toast(state, "Bookmarked");
 }
 
 } // namespace
@@ -352,6 +367,8 @@ ReaderView::~ReaderView()
     state->token_view_styling.unsubscribe_from_changes(
         state->token_view_styling_sub_id
     );
+    // Persist any position still waiting on the scroll throttle
+    state->state_store.flush();
 }
 
 void ReaderView::update_token_view_title(DocAddr address)
@@ -396,9 +413,7 @@ void ReaderView::on_keypress(SDLKey key)
 
     switch (key) {
         case SW_BTN_A:
-            state->token_view_styling.set_show_title_bar(
-                !state->token_view_styling.get_show_title_bar()
-            );
+            state->token_view_styling.cycle_title_bar_progress();
             break;
         case SW_BTN_SELECT:
             open_toc_menu(*this, *state);
@@ -408,6 +423,28 @@ void ReaderView::on_keypress(SDLKey key)
             break;
         case SW_BTN_Y:
             toggle_bookmark_at_current(*state);
+            break;
+        case SW_BTN_L1:
+        case SW_BTN_R1:
+        case SW_BTN_L2:
+        case SW_BTN_R2:
+            {
+                auto [chapter_l, chapter_r] = get_shoulder_keymap_chapter_lr(
+                    state->sys_styling.get_shoulder_keymap()
+                );
+                if (key == chapter_l)
+                {
+                    seek_chapter_relative(-1);
+                    break;
+                }
+                if (key == chapter_r)
+                {
+                    seek_chapter_relative(1);
+                    break;
+                }
+            }
+            // Page-turn shoulders
+            state->token_view->on_keypress(key);
             break;
         default:
             state->token_view->on_keypress(key);
@@ -429,6 +466,24 @@ void ReaderView::seek_to_toc_index(uint32_t toc_index)
 {
     auto address = state->reader->get_toc_item_address(toc_index);
     seek_to_address(address);
+}
+
+void ReaderView::seek_chapter_relative(int delta)
+{
+    const auto &toc = state->reader->get_table_of_contents();
+    if (toc.empty() || delta == 0)
+    {
+        return;
+    }
+
+    int current = static_cast<int>(
+        state->reader->get_toc_position(get_current_address(*state)).toc_index
+    );
+    int next = std::clamp(current + delta, 0, static_cast<int>(toc.size()) - 1);
+    if (next != current)
+    {
+        seek_to_toc_index(static_cast<uint32_t>(next));
+    }
 }
 
 void ReaderView::seek_to_address(DocAddr address)

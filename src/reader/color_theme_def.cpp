@@ -10,6 +10,16 @@ namespace
 
 const std::vector<std::pair<std::string, ColorTheme>> theme_defs = {
     {
+        "night_soft",
+        {
+            {28, 28, 30, 0},    // charcoal background (not pure black)
+            {210, 208, 200, 0}, // warm off-white text
+            {110, 110, 114, 0}, // secondary text
+            {120, 90, 150, 0},  // muted violet highlight
+            {230, 228, 220, 0}, // highlight text
+        }
+    },
+    {
         "night_contrast",
         {
             {0, 0, 0, 0},       // background

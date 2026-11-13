@@ -260,7 +260,6 @@ int main(int argc, char **argv)
 
     std::shared_ptr<SettingsView> settings_view = std::make_shared<SettingsView>(
         sys_styling,
-        token_view_styling,
         SYSTEM_FONT
     );
 
@@ -352,10 +351,11 @@ int main(int argc, char **argv)
         held_key_tracker.accumulate(avg_loop_time); // Pretend perfect loop timing for event firing consistency
         ran_user_code = held_key_tracker.for_longest_held(key_held_callback) || ran_user_code;
 
-        if (ran_user_code)
-        {
-            bool force_render = view_stack.pop_completed_views();
+        // Always poll so auto-dismiss popups (e.g. bookmark toast) can expire without a keypress
+        bool force_render = view_stack.pop_completed_views();
 
+        if (ran_user_code || force_render)
+        {
             if (view_stack.is_done())
             {
                 quit = true;

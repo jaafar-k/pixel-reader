@@ -1,11 +1,9 @@
 #include "./settings_view.h"
-#include "./token_view/token_view_styling.h"
 
 #include "reader/color_theme_def.h"
 #include "reader/config.h"
 #include "reader/draw_modal_border.h"
 #include "reader/font_catalog.h"
-#include "reader/settings_store.h"
 #include "reader/shoulder_keymap.h"
 #include "reader/system_styling.h"
 #include "reader/text_direction.h"
@@ -18,15 +16,13 @@
 
 SettingsView::SettingsView(
     SystemStyling &sys_styling,
-    TokenViewStyling &token_view_styling,
     std::string font_name
 ) : font_name(font_name),
     sys_styling(sys_styling),
-    token_view_styling(token_view_styling),
     styling_sub_id(sys_styling.subscribe_to_changes([this](SystemStyling::ChangeId) {
         needs_render = true;
     })),
-    num_menu_items(6)
+    num_menu_items(5)
 {
 }
 
@@ -90,18 +86,10 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
             line_selected == 3 ? style_hl : style_normal
         );
 
-        auto progress_label = render_text("Progress:", style_label);
-        auto progress_value = render_text(
-            token_view_styling.get_progress_reporting() == ProgressReporting::CHAPTER_PERCENT ?
-            "Chapter %" :
-            "Book %",
-            line_selected == 4 ? style_hl : style_normal
-        );
-
         auto text_dir_label = render_text("Text direction:", style_label);
         auto text_dir_value = render_text(
             text_direction_display_name(sys_styling.get_text_direction()),
-            line_selected == 5 ? style_hl : style_normal
+            line_selected == 4 ? style_hl : style_normal
         );
 
         Uint16 content_w;
@@ -116,15 +104,13 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
                 font_name_value->w + arrow_w,
                 shoulder_keymap_label->w,
                 shoulder_keymap_value->w + arrow_w,
-                progress_label->w,
-                progress_value->w + arrow_w,
                 text_dir_label->w,
                 text_dir_value->w + arrow_w
             };
             content_w = *std::max_element(widths.begin(), widths.end());
         }
 
-        int num_menu_items = 6;
+        int num_menu_items = 5;
         Uint16 text_padding = 5;
         Uint16 max_content_h = SCREEN_HEIGHT - DIALOG_BORDER_WIDTH * 2;
         Uint16 line_height = theme_label->h + theme_value->h;
@@ -215,15 +201,8 @@ bool SettingsView::render(SDL_Surface *dest_surface, bool force_render)
 
             if (is_line_shown(4))
             {
-                push_text(progress_label.get());
-                push_text(progress_value.get(), line_selected == 4);
-                rect.y += text_padding;
-            }
-
-            if (is_line_shown(5))
-            {
                 push_text(text_dir_label.get());
-                push_text(text_dir_value.get(), line_selected == 5);
+                push_text(text_dir_value.get(), line_selected == 4);
             }
         }
 
@@ -283,13 +262,6 @@ void SettingsView::on_change_shoulder_keymap(int dir)
     );
 }
 
-void SettingsView::on_change_progress()
-{
-    token_view_styling.set_progress_reporting(
-        get_next_progress_reporting(token_view_styling.get_progress_reporting())
-    );
-}
-
 void SettingsView::on_change_text_direction(int dir)
 {
     TextDirection cur = sys_styling.get_text_direction();
@@ -334,10 +306,6 @@ void SettingsView::on_keypress(SDLKey key)
                 else if (line_selected == 3)
                 {
                     on_change_shoulder_keymap(dir);
-                }
-                else if (line_selected == 4)
-                {
-                    on_change_progress();
                 }
                 else
                 {

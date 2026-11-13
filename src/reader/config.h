@@ -6,6 +6,8 @@
 #define TARGET_FPS 20
 
 #define IDLE_SAVE_TIME_SEC 60
+// Min interval between reading-position writes while scrolling (ms)
+#define ADDRESS_SAVE_THROTTLE_MS 2000
 
 #define FONT_DIR            "resources/fonts"
 #define DEFAULT_FONT_NAME   "resources/fonts/DejaVuSans.ttf"
@@ -20,7 +22,7 @@
 #define DIALOG_PADDING       25
 #define DIALOG_BORDER_WIDTH  3
 
-#define DEFAULT_COLOR_THEME "night_contrast"
+#define DEFAULT_COLOR_THEME "night_soft"
 
 #define CONFIG_FILE_PATH "reader.cfg"
 #define FALLBACK_STORE_PATH ".pixel_reader_store"

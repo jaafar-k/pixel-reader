@@ -1,5 +1,9 @@
 #include "./state_store.h"
+
+#include "reader/config.h"
 #include "util/key_value_file.h"
+
+#include <SDL/SDL.h>
 
 #include <algorithm>
 #include <fstream>
@@ -233,9 +237,19 @@ std::optional<DocAddr> StateStore::get_book_address(const std::string &book_id) 
 void StateStore::set_book_address(const std::string &book_id, DocAddr address)
 {
     auto it = book_addresses.find(book_id);
-    if (it == book_addresses.end() || it->second != address)
+    if (it != book_addresses.end() && it->second == address)
     {
-        book_addresses[book_id] = address;
+        return;
+    }
+
+    book_addresses[book_id] = address;
+
+    // Throttle SD writes during continuous scrolling; still save often enough for Mini sleep
+    uint32_t now = SDL_GetTicks();
+    if (last_address_flush_ms == 0 || now - last_address_flush_ms >= ADDRESS_SAVE_THROTTLE_MS)
+    {
+        flush();
+        last_address_flush_ms = now;
     }
 }
 
@@ -257,6 +271,7 @@ void StateStore::set_bookmarks(const std::string &book_id, std::vector<Bookmark>
 {
     book_bookmarks[book_id] = std::move(bookmarks);
     bookmarks_dirty.emplace(book_id);
+    flush(); // rare; persist immediately so Mini sleep cannot drop them
 }
 
 const string_unordered_map &StateStore::get_reader_cache(const std::string &book_id) const
@@ -321,6 +336,10 @@ void StateStore::flush() const
                 address_store_path_for_book(book_data_root_path, book_id),
                 address
             );
+        }
+        if (!book_addresses.empty())
+        {
+            last_address_flush_ms = SDL_GetTicks();
         }
         book_addresses.clear();
     }

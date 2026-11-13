@@ -60,6 +60,24 @@ void TokenViewStyling::set_progress_reporting(ProgressReporting progress_reporti
     }
 }
 
+void TokenViewStyling::cycle_title_bar_progress()
+{
+    if (!state->show_title_bar)
+    {
+        state->show_title_bar = true;
+        state->progress_reporting = ProgressReporting::CHAPTER_PERCENT;
+    }
+    else if (state->progress_reporting == ProgressReporting::CHAPTER_PERCENT)
+    {
+        state->progress_reporting = ProgressReporting::GLOBAL_PERCENT;
+    }
+    else
+    {
+        state->show_title_bar = false;
+    }
+    notify_subscribers();
+}
+
 uint32_t TokenViewStyling::subscribe_to_changes(std::function<void()> callback)
 {
     uint32_t sub_id = state->next_subscriber_id++;

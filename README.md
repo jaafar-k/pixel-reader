@@ -20,13 +20,15 @@ The default location for book files is `Media/Books`.
 - **Auto** uses the EPUB `dc:language` tag when present, otherwise detects Arabic script in the text
 - Bundled `ui_font_ar.ttf` is always used for Arabic/RTL content, regardless of the selected font
 
-### Bookmarks
+### Reading controls
 
 While reading:
 
+- **A** — cycle title bar: off → Chapter % → Book % → off
 - **Y** — add or remove a bookmark at the current position
 - **START** — open the bookmarks list (same style as TOC)
 - In the bookmarks list: **A** jump, **Y** delete, **B** / **START** close
+- **Shoulders** — one pair pages (Settings → Shoulder keymap); the other pair jumps prev/next chapter
 
 Bookmarks are stored per book (up to 64) and do not affect scroll/render performance.
 

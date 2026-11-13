@@ -47,6 +47,7 @@ public:
 
     void seek_to_toc_index(uint32_t toc_index);
     void seek_to_address(DocAddr address);
+    void seek_chapter_relative(int delta);
 };
 
 #endif

@@ -9,6 +9,8 @@
 #include "reader/system_styling.h"
 #include "reader/view_stack.h"
 #include "sys/screen.h"
+#include "util/sdl_font_cache.h"
+#include "util/sdl_utils.h"
 
 #include <iostream>
 
@@ -101,17 +103,55 @@ bool ReaderBootstrapView::render(SDL_Surface *dest_surface, bool force_render)
     bool perform_render = force_render || state->needs_render;
     if (perform_render)
     {
-        // blank screen during loading
-        const auto &bg_color = state->sys_styling.get_loaded_color_theme().background;
+        const auto &theme = state->sys_styling.get_loaded_color_theme();
 
         SDL_Rect rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         uint32_t surf_color = SDL_MapRGB(
             dest_surface->format,
-            bg_color.r,
-            bg_color.g,
-            bg_color.b
+            theme.background.r,
+            theme.background.g,
+            theme.background.b
         );
         SDL_FillRect(dest_surface, &rect, surf_color);
+
+        TTF_Font *font = cached_load_font(SYSTEM_FONT, state->sys_styling.get_font_size());
+        auto title = surface_unique_ptr { TTF_RenderUTF8_Shaded(
+            font,
+            "Opening...",
+            theme.main_text,
+            theme.background
+        ) };
+        if (title)
+        {
+            SDL_Rect title_rect = {
+                static_cast<Sint16>(SCREEN_WIDTH / 2 - title->w / 2),
+                static_cast<Sint16>(SCREEN_HEIGHT / 2 - title->h / 2),
+                0,
+                0
+            };
+            SDL_BlitSurface(title.get(), NULL, dest_surface, &title_rect);
+
+            std::string name = state->book_path.filename().string();
+            if (!name.empty())
+            {
+                auto subtitle = surface_unique_ptr { TTF_RenderUTF8_Shaded(
+                    font,
+                    name.c_str(),
+                    theme.secondary_text,
+                    theme.background
+                ) };
+                if (subtitle)
+                {
+                    SDL_Rect sub_rect = {
+                        static_cast<Sint16>(SCREEN_WIDTH / 2 - subtitle->w / 2),
+                        static_cast<Sint16>(title_rect.y + title->h + 8),
+                        0,
+                        0
+                    };
+                    SDL_BlitSurface(subtitle.get(), NULL, dest_surface, &sub_rect);
+                }
+            }
+        }
 
         state->needs_render = false;
     }
